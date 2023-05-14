@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, ScrollView, View, TextInput, TouchableOpacity, AsyncStorage, Keyboard, Image } from 'react-native';
+import { StyleSheet, Text, ScrollView, View, TextInput, TouchableOpacity, Keyboard, Image } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { styles } from './notesstyles';
 import * as ImagePicker from 'expo-image-picker';
 import ReactMarkdown from 'react-native-markdown-display';
@@ -14,7 +15,6 @@ export default function App() {
   const [body, setBody] = useState('');
   const [currentNoteIndex, setCurrentNoteIndex] = useState(null);
   const [rating, setRating] = useState(0);
-  const [imageUri, setImageUri] = useState(null);
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((savedNotes) => {
@@ -142,7 +142,6 @@ export default function App() {
         multiline={true}
         onSubmitEditing={() => Keyboard.dismiss()}
       />
-      {imageUri && <Image source={{ uri: imageUri }} style={{ width: 200, height: 200 }} />}
       <View style={{ flexDirection: 'row' }}>
         <TouchableOpacity style={styles.addButton} onPress={handleAddNote}>
           <Text style={styles.addButtonText}>{currentNoteIndex !== null ? 'Save' : 'Add'}</Text>
@@ -162,18 +161,19 @@ export default function App() {
                 <FontAwesome key={star} name={star <= note.rating ? 'star' : 'star-o'} size={20} color="orange" />
               ))}
             </View>
-            {note.imageUri && <Image source={{ uri: note.imageUri }} style={{ width: 200, height: 200, marginTop: 10 }} />}
-          <Text style={styles.noteBody}>{note.body}</Text>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
-          <Text style={styles.noteLocation}>{note.location}</Text>
-          <Text style={styles.noteDate}>{formatDate(note.date)}</Text>
-          </View>
-          </TouchableOpacity>
-          ))}
-          </ScrollView>
-          </View>
-          </View>
-  );
-
+            <ReactMarkdown>{note.body}</ReactMarkdown>
+            <TouchableOpacity style={styles.editButton} onPress={() => handleEditNote(index)}>
+              <Text style={styles.editButtonText}>Edit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteNote(index)}>
+              <Text style={styles.deleteButtonText}>Delete</Text>
+            </TouchableOpacity>
+            </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  </View>
+);
 }
+
 
