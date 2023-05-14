@@ -1,111 +1,19 @@
-// import { StatusBar } from 'expo-status-bar';
-// import { StyleSheet, Text, View } from 'react-native';
-
-// export default function App() {
-//   return (
-//     <View style={styles.container}>
-//       <Text>Open up App.js to start working on your app!</Text>
-//       <StatusBar style="auto" />
-//     </View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     backgroundColor: '#fff',
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//   },
-// });
-
-
 import React, { useState, useEffect } from 'react';
-
-import { StyleSheet, ScrollView, TouchableOpacity, Keyboard, Button, Image, TextInput, View, Text } from 'react-native';
-import { useForm, Controller } from 'react-hook-form';
-import { Rating } from 'react-native-ratings';
-import axios from 'axios';
-import ImagePicker from 'react-native-image-picker';
-import mongoose from 'mongoose';
-
-
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import { StyleSheet, Text, ScrollView, View, TextInput, TouchableOpacity, AsyncStorage, Keyboard, Image } from 'react-native';
 import { styles } from './notesstyles';
-import * as ImagePicker2 from 'expo-image-picker';
+import * as ImagePicker from 'expo-image-picker';
 import ReactMarkdown from 'react-native-markdown-display';
+import { FontAwesome } from '@expo/vector-icons';
 
-//const mongoose = require('mongoose');
+const STORAGE_KEY = '@notes';
 
-const reviewSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  datePosted: { type: Date, default: Date.now },
-  rating: { type: Number, required: true, min: 1, max: 5 },
-  image: { type: String, required: true }
-});
-
-const Review = mongoose.model('Review', reviewSchema);
-
-const AddReviewScreen = () => {
-  const [image, setImage] = useState(null);
-  const { control, handleSubmit, formState: { errors }, reset } = useForm();
-
-  const onSubmit = async (data) => {
-    try {
-      const formData = new FormData();
-      formData.append('image', {
-        uri: image.uri,
-        type: 'image/jpeg',
-        name: 'review.jpg',
-      });
-      formData.append('title', data.title);
-      formData.append('rating', parseInt(data.rating, 10));
-
-      await axios.post('http://localhost:3000/reviews', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      // Clear form and image state
-      setImage(null);
-      reset();
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const openImagePicker = async () => {
-    const options = {
-      title: 'Select Image',
-      storageOptions: {
-        skipBackup: true,
-        path: 'images',
-      },
-    };
-  
-    ImagePicker.showImagePicker(options, (response) => { //show camera roll and allow user to select image
-      if (response.didCancel) {
-        console.log('User cancelled image picker');
-      } else if (response.error) {
-        console.log('ImagePicker Error: ', response.error);
-      } else if (response.customButton) {
-        console.log('User tapped custom button: ', response.customButton);
-      } else {
-        const source = { uri: response.uri };
-        setImage(source);
-      }
-    });
-  };
-
-  const STORAGE_KEY = '@notes';
-
-
+export default function App() {
   const [activeTab, setActiveTab] = useState('De La Guerra');
   const [notes, setNotes] = useState([]);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [currentNoteIndex, setCurrentNoteIndex] = useState(null);
+  const [rating, setRating] = useState(0);
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((savedNotes) => {
@@ -120,15 +28,15 @@ const AddReviewScreen = () => {
   }, [notes]);
 
   const handleAddImage = async () => {
-    const { status } = await ImagePicker2.requestMediaLibraryPermissionsAsync();
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (status !== 'granted') {
       alert('Sorry, we need camera roll permissions to make this work!');
       return;
     }
 
-    const result = await ImagePicker2.launchImageLibraryAsync({
-      mediaTypes: ImagePicker2.MediaTypeOptions.Images,
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 1,
     });
@@ -139,7 +47,7 @@ const AddReviewScreen = () => {
   };
   
   const handleAddNote = () => {
-    const newNote = { title, body, tab: activeTab };
+    const newNote = { title, body, tab: activeTab, rating };
     if (currentNoteIndex !== null) {
       const updatedNotes = [...notes];
       updatedNotes[currentNoteIndex] = newNote;
@@ -150,6 +58,7 @@ const AddReviewScreen = () => {
     }
     setTitle('');
     setBody('');
+    setRating(0);
   };
 
   const handleEditNote = (index) => {
@@ -158,6 +67,7 @@ const AddReviewScreen = () => {
     setNotes(updatedNotes);
     setTitle(updatedNotes[index].title);
     setBody(updatedNotes[index].body);
+    setRating(updatedNotes[index].rating || 0);
   };
 
   const handleDeleteNote = (index) => {
@@ -168,47 +78,29 @@ const AddReviewScreen = () => {
 
   const filteredNotes = notes.filter((note) => note.tab === activeTab);
 
+  const renderRatingStars = () => {
+    const stars = [];
+
+    for (let i = 1; i <= 5; i++) {
+      const filled = i <= rating;
+      const starColor = filled ? '#FFD64C' : '#BBBBBB';
+
+      stars.push(
+        <TouchableOpacity key={i} onPress={() => setRating(i)}>
+          <FontAwesome name={filled ? 'star' : 'star-o'} size={24} color={starColor} />
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <View style={styles.ratingContainer}>
+        {stars}
+      </View>
+    );
+  };
+
   return (
-    <View>
-      <Controller
-        control={control}
-        rules={{ required: true }}
-        render={({ field }) => (
-          <TextInput
-            {...field}
-            placeholder="Enter a title"
-            style={{ height: 40 }}
-          />
-        )}
-        name="title"
-        defaultValue=""
-      />
-      {errors.title && <Text>This field is required</Text>}
-
-      <Controller
-        control={control}
-        rules={{ required: true }}
-        render={({ field }) => (
-          <Rating
-            {...field}
-            ratingCount={5}
-            imageSize={30}
-            showRating
-            onFinishRating={field.onChange}
-          />
-        )}
-        name="rating"
-        defaultValue={1}
-      />
-      {errors.rating && <Text>This field is required</Text>}
-
-      <Button title="Pick an image" onPress={openImagePicker} />
-
-      {image && <Image source={{ uri: image.uri }} style={{ width: 200, height: 200 }} />}
-
-      <Button title="Submit review" onPress={handleSubmit(onSubmit)} />
-
-      <View style={styles.container}>
+  <View style={styles.container}>
     <View style={styles.tabContainer}>
       <View style={{ flexDirection: 'row' }}>
         <TouchableOpacity style={activeTab === 'de_la_guerra' ? styles.activeTab : styles.tab} onPress={() => setActiveTab('de_la_guerra')}>
@@ -226,12 +118,21 @@ const AddReviewScreen = () => {
       </View>
     </View>
     <View style={styles.inputContainer}>
-      <TextInput
-        style={styles.titleInput}
-        placeholder="Title"
-        value={title}
-        onChangeText={(text) => setTitle(text)}
-      />
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <TextInput
+          style={styles.titleInput}
+          placeholder="Title"
+          value={title}
+          onChangeText={(text) => setTitle(text)}
+        />
+        <View style={{ flexDirection: 'row', marginLeft: 10 }}>
+          {[1, 2, 3, 4, 5].map((star) => (
+            <TouchableOpacity key={star} onPress={() => setRating(star)}>
+              <FontAwesome name={star <= rating ? 'star' : 'star-o'} size={20} color="orange" />
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
       <TextInput
         style={styles.bodyInput}
         placeholder="Body"
@@ -253,7 +154,12 @@ const AddReviewScreen = () => {
       <ScrollView style={styles.notesContainer}>
         {filteredNotes.map((note, index) => (
           <TouchableOpacity key={index} style={styles.noteContainer} onPress={() => handleEditNote(index)}>
-            <Text style={styles.noteTitle}>{note.title}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={styles.noteTitle}>{note.title}</Text>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <FontAwesome key={star} name={star <= note.rating ? 'star' : 'star-o'} size={20} color="orange" />
+              ))}
+            </View>
             <ReactMarkdown>{note.body}</ReactMarkdown>
             <TouchableOpacity style={styles.editButton} onPress={() => handleEditNote(index)}>
               <Text style={styles.editButtonText}>Edit</Text>
@@ -261,19 +167,10 @@ const AddReviewScreen = () => {
             <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteNote(index)}>
               <Text style={styles.deleteButtonText}>Delete</Text>
             </TouchableOpacity>
-          </TouchableOpacity>
+            </TouchableOpacity>
         ))}
       </ScrollView>
     </View>
   </View>
-    </View>
-
-    
-  );
-};
-
-export default AddReviewScreen;
-
-
-
-
+);
+}
